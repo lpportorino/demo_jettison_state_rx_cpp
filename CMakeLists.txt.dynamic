@@ -1,0 +1,119 @@
+cmake_minimum_required(VERSION 3.20)
+project(jettison_state_rx_cpp VERSION 1.0.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Security and hardening flags
+add_compile_definitions(
+    _FORTIFY_SOURCE=2
+    _GLIBCXX_ASSERTIONS
+)
+
+add_compile_options(
+    -fstack-protector-strong
+    -fstack-clash-protection
+    -fcf-protection
+)
+
+add_link_options(
+    -Wl,-z,relro
+    -Wl,-z,now
+    -Wl,-z,noexecstack
+)
+
+# Warning flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    add_compile_options(
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wconversion
+        -Wsign-conversion
+        -Wcast-align
+        -Wformat=2
+        -Wformat-security
+        -Wuninitialized
+        -Wnull-dereference
+        -Wdouble-promotion
+        -Wimplicit-fallthrough
+        -Wshadow
+        -Wundef
+        -Wwrite-strings
+        -Wpointer-arith
+        -Wcast-qual
+        -Wswitch-default
+        -Wlogical-op
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wno-strict-overflow
+    )
+endif()
+
+# Find packages (all installed system-wide)
+find_package(Protobuf REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBWEBSOCKETS REQUIRED libwebsockets)
+
+# Find Abseil (required by protovalidate-cc)
+find_package(absl REQUIRED)
+
+# Find protovalidate-cc (installed in /usr/local)
+find_library(PROTOVALIDATE_CC_LIB NAMES protovalidate_cc REQUIRED)
+find_path(PROTOVALIDATE_CC_INCLUDE NAMES buf/validate/validator.h REQUIRED)
+
+# Path to jettison proto C++ files
+set(JETTISON_PROTO_CPP_DIR "${CMAKE_SOURCE_DIR}/jettison_proto_cpp" CACHE PATH "Path to jettison_proto_cpp")
+
+if(NOT EXISTS "${JETTISON_PROTO_CPP_DIR}")
+    message(FATAL_ERROR "jettison_proto_cpp directory not found")
+endif()
+
+# Jettison protobuf library (pre-compiled .pb.cc files)
+file(GLOB JETTISON_PROTO_SOURCES "${JETTISON_PROTO_CPP_DIR}/*.pb.cc")
+file(GLOB JETTISON_PROTO_HEADERS "${JETTISON_PROTO_CPP_DIR}/*.pb.h")
+
+add_library(jettison_protos OBJECT ${JETTISON_PROTO_SOURCES} ${JETTISON_PROTO_HEADERS})
+target_include_directories(jettison_protos PUBLIC "${JETTISON_PROTO_CPP_DIR}")
+target_link_libraries(jettison_protos PUBLIC ${Protobuf_LIBRARIES})
+
+# Core application libraries
+add_library(websocket_client src/websocket_client.cpp src/websocket_client.h)
+target_include_directories(websocket_client PRIVATE ${LIBWEBSOCKETS_INCLUDE_DIRS})
+target_link_libraries(websocket_client PRIVATE ${LIBWEBSOCKETS_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto)
+
+add_library(proto_validator src/proto_validator.cpp src/proto_validator.h)
+target_include_directories(proto_validator PRIVATE ${PROTOVALIDATE_CC_INCLUDE})
+target_link_libraries(proto_validator PRIVATE
+    jettison_protos
+    ${PROTOVALIDATE_CC_LIB}
+    ${Protobuf_LIBRARIES}
+    absl::statusor
+    absl::status
+    absl::strings
+)
+
+add_library(json_converter src/json_converter.cpp src/json_converter.h)
+target_link_libraries(json_converter PRIVATE jettison_protos ${Protobuf_LIBRARIES})
+
+add_library(dump_manager src/dump_manager.cpp src/dump_manager.h)
+target_link_libraries(dump_manager PRIVATE jettison_protos)
+
+# Main executable
+add_executable(jettison_state_rx src/main.cpp)
+target_link_libraries(jettison_state_rx PRIVATE
+    websocket_client
+    proto_validator
+    json_converter
+    dump_manager
+    jettison_protos
+    ${Protobuf_LIBRARIES}
+    Threads::Threads
+)
+
+# Install target
+install(TARGETS jettison_state_rx DESTINATION bin)

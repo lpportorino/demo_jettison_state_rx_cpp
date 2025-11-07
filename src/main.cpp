@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2024 Jettison State RX Contributors
+// Copyright (C) 2025 Jettison Project Team
 
 #include "dump_manager.h"
 #include "json_converter.h"
@@ -255,6 +255,13 @@ main (int argc, char *argv[])
     }
 
   std::string arg1 = argv[1];
+
+  // Help mode
+  if (arg1 == "--help" || arg1 == "-h")
+    {
+      print_help (argv[0]);
+      return EXIT_SUCCESS;
+    }
 
   // Read dump mode
   if (arg1 == "--read-dump")

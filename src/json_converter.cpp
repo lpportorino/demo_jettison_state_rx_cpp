@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2024 Jettison State RX Contributors
+// Copyright (C) 2025 Jettison Project Team
 
 #include "json_converter.h"
 #include <google/protobuf/util/json_util.h>
@@ -12,7 +12,8 @@ JsonConverter::to_json (const ser::JonGUIState &state, bool pretty)
 {
   google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = pretty;
-  options.always_print_primitive_fields = true;
+  // Note: always_print_primitive_fields removed in Protobuf 29.x
+  // Default behavior now includes primitive fields
   options.preserve_proto_field_names = true;
 
   std::string json_string;

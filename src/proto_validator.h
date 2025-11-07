@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2024 Jettison State RX Contributors
+// Copyright (C) 2025 Jettison Project Team
 
 #ifndef PROTO_VALIDATOR_H
 #define PROTO_VALIDATOR_H
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "buf/validate/validator.h"
 #include "jon_shared_data.pb.h"
 
 namespace jettison
@@ -34,7 +36,7 @@ struct ValidationResult
 class ProtoValidator
 {
 public:
-  ProtoValidator () = default;
+  ProtoValidator ();
 
   /**
    * @brief Parse and validate a binary protobuf message
@@ -60,6 +62,8 @@ private:
   ValidationResult validate (const ser::JonGUIState &state);
 
   ValidationResult last_result_;
+  std::unique_ptr<buf::validate::ValidatorFactory> validator_factory_;
+  google::protobuf::Arena arena_;
 };
 
 } // namespace jettison

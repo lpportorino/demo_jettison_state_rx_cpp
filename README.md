@@ -1,15 +1,16 @@
-# Jettison State Receiver (C++)
+# Jettison State RX
 
-A C++ console application for receiving, validating, and displaying state updates from Jettison systems over WebSocket Secure (WSS) connections.
+A C++ WebSocket client for receiving and validating Jettison GUI state messages with **runtime buf.validate constraint validation** using [protovalidate-cc](https://github.com/bufbuild/protovalidate-cc).
 
 ## Features
 
-- Connect to Jettison state WebSocket endpoint (`/ws/ws_state`)
-- Receive binary protobuf state messages
-- Validate messages using buf.validate constraints
-- Convert and display state as JSON
-- Dump raw binary payloads for offline analysis
-- Read and validate dumped payloads
+- **WebSocket Streaming**: Connect to Jettison state servers via WebSocket (ws:// or wss://)
+- **Runtime Validation**: Validates all received messages using [buf.validate](https://github.com/bufbuild/protovalidate) constraints with full CEL expression support
+- **Data Integrity Protection**: Detects corrupted or out-of-range values with detailed error reporting
+- **JSON Output**: Converts Protocol Buffer messages to JSON for easy consumption
+- **Dump Mode**: Save raw binary payloads for offline analysis
+- **Read Dumps**: Validate and analyze previously saved dumps
+- **Portable AppImage**: Single executable with all dependencies bundled
 
 ## Security Warning
 
@@ -35,19 +36,19 @@ The easiest way to use Jettison State RX is to download the pre-built AppImage f
 
 ```bash
 # Download the AppImage
-wget https://github.com/YOUR_USERNAME/demo_jettison_state_rx_cpp/releases/latest/download/jettison-state-rx-*-linux-x86_64.AppImage
+wget https://github.com/YOUR_USERNAME/demo_jettison_state_rx_cpp/releases/latest/download/Jettison_State_RX-x86_64.AppImage
 
 # Make it executable
-chmod +x jettison-state-rx-*.AppImage
+chmod +x Jettison_State_RX-x86_64.AppImage
 
 # Run it
-./jettison-state-rx-*.AppImage sych.local
+./Jettison_State_RX-x86_64.AppImage --help
 ```
 
 **Benefits of AppImage:**
-- No installation required
-- No dependencies to install
-- Works on all major Linux distributions
+- No installation required - single executable file
+- No dependencies to install - everything bundled
+- Works on any Linux with glibc 2.35+ (Ubuntu 22.04+)
 - Completely portable - run from any directory
 
 ## Dependencies (for building from source)
@@ -73,7 +74,7 @@ git clone --recursive git@github.com:YOUR_USERNAME/demo_jettison_state_rx_cpp.gi
 cd demo_jettison_state_rx_cpp
 
 # Build (automatically runs format and lint checks)
-./build.sh
+scripts/build.sh
 ```
 
 The build script will:
@@ -87,10 +88,10 @@ The build script will:
 ### Build Script Options
 
 ```bash
-./build.sh --clean        # Clean build directory first
-./build.sh --no-checks    # Skip format and lint checks
-./build.sh -j 8           # Use 8 parallel build jobs
-./build.sh --help         # Show all options
+scripts/build.sh --clean        # Clean build directory first
+scripts/build.sh --no-checks    # Skip format and lint checks
+scripts/build.sh -j 8           # Use 8 parallel build jobs
+scripts/build.sh --help         # Show all options
 ```
 
 ### Manual Build (Advanced)
@@ -175,15 +176,22 @@ cmake -DENFORCE_CHECKS=OFF ..
 ### Display Help
 
 ```bash
-./jettison_state_rx
+./Jettison_State_RX-x86_64.AppImage --help
 ```
 
-### Stream State Messages
+### Live Streaming Mode
 
-Connect to a Jettison system and display state updates in real-time:
+Connect to a WebSocket server and receive state updates:
 
 ```bash
-./jettison_state_rx sych.local
+./Jettison_State_RX-x86_64.AppImage sych.local
+```
+
+**Usage:**
+```
+./Jettison_State_RX-x86_64.AppImage <host>              # Stream state messages
+./Jettison_State_RX-x86_64.AppImage <host> --dump N    # Capture N dumps and exit
+./Jettison_State_RX-x86_64.AppImage --read-dump <file> # Validate a dump file
 ```
 
 Press `Ctrl+C` to stop streaming.
@@ -193,7 +201,7 @@ Press `Ctrl+C` to stop streaming.
 Capture N raw binary payloads to the `dumps/` directory:
 
 ```bash
-./jettison_state_rx sych.local --dump 10
+./Jettison_State_RX-x86_64.AppImage sych.local --dump 10
 ```
 
 This will save 10 state messages as:
@@ -209,39 +217,134 @@ The dumps directory is automatically created if it doesn't exist.
 Validate and display a previously captured dump file:
 
 ```bash
-./jettison_state_rx --read-dump dumps/state_0001.bin
+./Jettison_State_RX-x86_64.AppImage --read-dump dumps/state_0001.bin --json-stdout
 ```
 
-## Output Format
+## Validation Examples
 
-For each received message, the application displays:
+### Valid Message
 
-1. **Message number and size**
-2. **Validation status**: PASSED or FAILED
-3. **Validation errors** (if any)
-4. **Validation warnings** (if any)
-5. **JSON representation** of the state message (when not in dump mode)
-
-### Example Output
+When a message passes all buf.validate constraints:
 
 ```
-Connecting to wss://sych.local:443/ws/ws_state
-Connected successfully
-
-=== Message #1 (size: 1234 bytes) ===
+Reading dump file: dumps/state_0001.bin
+Read 546 bytes
 Validation: PASSED
 
 JSON Output:
 {
   "protocol_version": 1,
-  "system_monotonic_time_us": "1234567890",
-  "system": {
-    "voltage_v": 24.5,
-    ...
+  "system_monotonic_time_us": "123456789",
+  "gps": {
+    "latitude": xx.xx,
+    "longitude": xx.xx,
+    "manual_latitude": xx.xx,
+    "manual_longitude": xx.xx
+  },
+  "compass": {
+    "azimuth": 162.39,
+    "elevation": 2.48,
+    "bank": 0.45
+  },
+  "rotary": {
+    "azimuth": 316.18,
+    "platform_azimuth": 316.18,
+    "platform_elevation": -1.22
   },
   ...
 }
 ```
+
+### Invalid Message (Corrupted Data)
+
+When validation detects out-of-range values:
+
+```
+Reading dump file: dumps/state_corrupted.bin
+Read 546 bytes
+INVALID MESSAGE
+Parse errors:
+  - Field 'gps.longitude': value must be greater than or equal to -180 and less than or equal to 180 (rule: double.gte_lte)
+  - Field 'gps.latitude': value must be greater than or equal to -90 and less than or equal to 90 (rule: double.gte_lte)
+  - Field 'compass.azimuth': value must be greater than or equal to 0 and less than 360 (rule: double.gte_lt)
+  - Field 'compass.elevation': value must be greater than or equal to -90 and less than or equal to 90 (rule: double.gte_lte)
+  - Field 'rotary.azimuth': value must be greater than or equal to 0 and less than 360 (rule: double.gte_lt)
+  - Field 'camera_day.focus_pos': value must be greater than or equal to 0 and less than or equal to 1 (rule: double.gte_lte)
+  - Field 'camera_day.horizontal_fov_degrees': value must be greater than 0 and less than 360 (rule: double.gt_lt)
+  ...
+```
+
+The validator enforces constraints such as:
+- **Geographic coordinates**: latitude ∈ [-90, 90], longitude ∈ [-180, 180]
+- **Angles**: azimuth ∈ [0, 360), elevation ∈ [-90, 90], bank ∈ [-180, 180)
+- **Normalized values**: camera controls ∈ [0, 1]
+- **Field of view**: positive values < 360°
+- **Required fields**: ensures all critical subsystem data is present
+
+### Testing Validation with Corrupted Data
+
+The `scripts/corrupt_dump.py` utility is provided for testing buf.validate constraint validation:
+
+```bash
+# Corrupt a valid dump by replacing double values with 999.0
+python3 scripts/corrupt_dump.py dumps/state_0001.bin dumps/state_corrupted.bin
+
+# Test validation on the corrupted dump
+./Jettison_State_RX-x86_64.AppImage --read-dump dumps/state_corrupted.bin
+```
+
+The script systematically corrupts all double-precision floating-point values in the protobuf binary, replacing them with out-of-range values (999.0). This is useful for:
+- Verifying buf.validate constraints are enforced
+- Testing error handling and reporting
+- Demonstrating data integrity protection
+- Regression testing validation logic
+
+## Building
+
+### AppImage (Recommended)
+
+Build a portable Linux AppImage with all dependencies bundled:
+
+```bash
+docker build --target export -t jettison-state-rx:appimage .
+docker run --rm -v "$(pwd)":/output <IMAGE_ID> sh -c "cp /appimage/*.AppImage /output/"
+```
+
+The resulting `Jettison_State_RX-x86_64.AppImage` runs on any Linux system with glibc 2.35+ (Ubuntu 22.04+).
+
+### Running the AppImage
+
+```bash
+chmod +x Jettison_State_RX-x86_64.AppImage
+./Jettison_State_RX-x86_64.AppImage --help
+```
+
+## Dependencies
+
+The application uses the following libraries:
+
+- **[Protobuf 29.2](https://github.com/protocolbuffers/protobuf)**: Protocol buffer serialization
+- **[protovalidate-cc v1.0.0-rc.2](https://github.com/bufbuild/protovalidate-cc)**: Runtime buf.validate constraint validation
+- **[Abseil 20240722.0](https://github.com/abseil/abseil-cpp)**: Google's C++ common libraries
+- **[libwebsockets 4.3.3](https://github.com/warmcat/libwebsockets)**: WebSocket client
+- **[RE2](https://github.com/google/re2)**: Regular expression library (used by CEL-C++)
+- **[CEL-C++](https://github.com/google/cel-cpp)**: Common Expression Language (vendored by protovalidate-cc)
+
+All dependencies are statically or dynamically linked and bundled in the AppImage.
+
+## Protocol
+
+The application receives binary Protocol Buffer messages of type `ser.JonGUIState` via WebSocket. Each message contains sensor data from various subsystems:
+
+- System status
+- GPS coordinates
+- Compass orientation
+- Camera settings (day/thermal)
+- Rotary platform position
+- Environmental sensors
+- Recording status
+
+All fields are validated against their buf.validate constraints defined in the `.proto` files.
 
 ## Development
 
@@ -315,20 +418,102 @@ The application performs basic validation of protobuf messages:
 
 ```
 .
-├── CMakeLists.txt          # Build configuration
-├── src/
-│   ├── main.cpp            # Entry point and CLI argument handling
-│   ├── websocket_client.*  # WebSocket client implementation
-│   ├── proto_validator.*   # Protobuf parsing and validation
-│   ├── json_converter.*    # JSON serialization
-│   └── dump_manager.*      # File dump/read operations
-├── dumps/                  # Binary dump files (git-ignored)
-├── .clang-format           # Code formatting rules
-├── .clang-tidy             # Static analysis configuration
-├── .gitignore              # Git ignore patterns
-├── LICENSE                 # GPL-3.0 license
-└── README.md               # This file
+├── CMakeLists.txt              # Build configuration
+├── CMakeLists.txt.dynamic      # Dynamic build config (for AppImage)
+├── Dockerfile                  # AppImage build (Ubuntu 22.04)
+├── VERSION                     # Version number
+├── LICENSE                     # GPL-3.0 license
+├── README.md                   # This file
+│
+├── .clang-format               # Code formatting rules (GNU style)
+├── .clang-tidy                 # Static analysis configuration
+├── .dockerignore               # Docker build exclusions
+├── .gitignore                  # Git ignore patterns
+├── .gitmodules                 # Git submodule configuration
+│
+├── src/                        # Application source code
+│   ├── main.cpp                # Entry point and CLI argument handling
+│   ├── websocket_client.*      # WebSocket client implementation
+│   ├── proto_validator.*       # Protobuf parsing and validation
+│   ├── json_converter.*        # JSON serialization
+│   └── dump_manager.*          # File dump/read operations
+│
+├── scripts/                    # Utility scripts
+│   ├── README.md               # Scripts documentation
+│   ├── build.sh                # Manual build script with quality checks
+│   ├── corrupt_dump.py         # Corruption testing utility
+│   ├── create_invalid_dumps.py # Targeted test case generator
+│   └── test_all_dumps.sh       # Validation test runner
+│
+├── dumps/                      # Binary dump files (gitignored)
+│   └── state_*.bin             # Captured state messages from live connections
+│
+├── test_dumps/                 # Test dumps with violations (gitignored)
+│   └── *.bin                   # Generated test cases with specific constraint violations
+│
+├── jettison_proto_cpp/         # Proto files (git submodule)
+│   ├── jon_shared_data.pb.h    # Generated protobuf headers
+│   └── jon_shared_data.pb.cc   # Generated protobuf implementations
+│
+└── .github/                    # GitHub configuration
+    └── workflows/              # CI/CD automation
+        └── build-appimage.yml  # AppImage build and release workflow
 ```
+
+## Protocol Definition
+
+This project uses the **Jettison Protocol** defined in Protocol Buffers with [buf.validate](https://github.com/bufbuild/protovalidate) constraints.
+
+### Source Repositories
+
+**Protocol Source:**
+- [jettison_protogen](https://github.com/lpportorino/jettison_protogen.git) - Source repository containing:
+  - Protocol Buffer definitions (`.proto` files in `./proto`)
+  - buf.validate constraint annotations
+  - Code generation scripts
+  - GitHub Actions automation for generating C++/Python/etc. code
+
+**Generated Code (Git Submodule):**
+- [jettison_proto_cpp](https://github.com/lpportorino/jettison_proto_cpp.git) - **Auto-generated** by jettison_protogen CI/CD
+  - Pre-compiled C++ headers (`.pb.h`) and implementations (`.pb.cc`)
+  - Generated from Protocol Buffers 29.2
+  - Automatically updated when proto files change
+  - Used as a git submodule in this project (`jettison_proto_cpp/`)
+
+**Important:** Do not manually edit files in `jettison_proto_cpp/` - they are automatically generated and pushed by the jettison_protogen GitHub Actions workflow.
+
+### Directory Descriptions
+
+**Source Code:**
+- **`src/`** - Application source code implementing WebSocket client, validation, and JSON conversion
+- **`jettison_proto_cpp/`** - Git submodule containing pre-compiled protobuf files (Protobuf 29.2)
+
+**Build & Configuration:**
+- **`CMakeLists.txt`** - Static build configuration for manual builds
+- **`CMakeLists.txt.dynamic`** - Dynamic linking configuration used by AppImage builds
+- **`Dockerfile`** - Multi-stage Docker build for creating portable AppImage (Ubuntu 22.04 base)
+- **`.clang-format`** - Code formatting rules enforcing GNU style
+- **`.clang-tidy`** - Static analysis configuration for code quality checks
+
+**Scripts & Tools:**
+- **`scripts/`** - Utility scripts for building, testing, and validation
+  - `build.sh` - Automated build with format/lint checks
+  - `corrupt_dump.py` - Corrupts dumps to test buf.validate constraints
+  - `create_invalid_dumps.py` - Generates specific violation test cases
+  - `test_all_dumps.sh` - Comprehensive validation test runner
+
+**Data Directories (gitignored):**
+- **`dumps/`** - Binary state messages captured from live WebSocket connections
+  - Contains sensitive data (GPS coordinates, system info)
+  - Files named `state_NNNN.bin`
+  - Created automatically by `--dump` mode
+- **`test_dumps/`** - Generated test cases with buf.validate constraint violations
+  - Used for regression testing validation logic
+  - Regenerated using `scripts/create_invalid_dumps.py`
+
+**CI/CD:**
+- **`.github/workflows/`** - GitHub Actions automation
+  - `build-appimage.yml` - Builds AppImage on push/PR and creates releases on tags
 
 ## License
 

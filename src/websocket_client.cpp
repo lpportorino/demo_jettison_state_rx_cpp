@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2024 Jettison State RX Contributors
+// Copyright (C) 2025 Jettison Project Team
 
 #include "websocket_client.h"
 #include <cstring>
@@ -88,7 +88,8 @@ public:
     ccinfo.ssl_connection = LCCSCF_USE_SSL
                             | LCCSCF_ALLOW_SELFSIGNED
                             | LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK
-                            | LCCSCF_ALLOW_EXPIRED;
+                            | LCCSCF_ALLOW_EXPIRED
+                            | LCCSCF_ALLOW_INSECURE;
     ccinfo.userdata = this;
 
     wsi_ = lws_client_connect_via_info (&ccinfo);
