@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" version="1.1" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" rx="24" fill="#2c3e50"/>
+  <g fill="#ecf0f1" font-family="sans-serif" font-weight="bold">
+    <text x="128" y="110" font-size="72" text-anchor="middle">JS</text>
+    <text x="128" y="170" font-size="32" text-anchor="middle">STATE RX</text>
+  </g>
+  <circle cx="200" cy="56" r="16" fill="#3498db"/>
+  <path d="m 200,40 v -8 m 0,48 v -8 m -16,-16 h -8 m 48,0 h -8" stroke="#3498db" stroke-width="3" stroke-linecap="round"/>
+</svg>

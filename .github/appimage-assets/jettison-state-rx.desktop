@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Jettison State RX
+Comment=Receive and validate Jettison state messages over WebSocket
+Exec=jettison_state_rx
+Icon=jettison-state-rx
+Terminal=true
+Categories=Network;Utility;System;
+Keywords=websocket;protobuf;jettison;state;monitoring;
